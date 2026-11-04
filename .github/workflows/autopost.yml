@@ -1,0 +1,92 @@
+name: Автопостинг
+
+# Как в uz-business-news: бот работает непрерывной цепочкой запусков. Каждый запуск живёт ~5,5 часа
+# (лимит GitHub — 6 ч), внутри ждёт времени публикации (07:00 и 18:00 по Ташкенту), готовит пост
+# за 20 минут и публикует точно в срок, а перед завершением сам запускает следующий.
+# Запустить цепочку достаточно один раз: Actions → Автопостинг → Run workflow.
+# Расписание раз в 3 часа — запасной вариант, если цепочка прервётся.
+# Пауза: Actions → Автопостинг → «…» → Disable workflow.
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ["bot/**", "requirements.txt", ".github/workflows/autopost.yml", "scripts/push_state.sh"]
+
+concurrency:
+  group: autopost
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Проверить секреты
+        id: secrets
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "::error::Не задан секрет TELEGRAM_BOT_TOKEN (Settings → Secrets and variables → Actions)"; exit 1
+          fi
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Не задан секрет ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions)"; exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Состояние (какие посты уже вышли, история тем) хранится в ветке bot-state
+      - name: Загрузить состояние
+        run: |
+          mkdir -p data
+          if git fetch --depth=1 origin bot-state 2>/dev/null; then
+            git show FETCH_HEAD:state.json > data/state.json
+            echo "Состояние загружено"
+          else
+            echo "Ветки bot-state ещё нет — первый запуск"
+          fi
+
+      - name: Работа бота (~5,5 часа)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Soliqmobilxizmati' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL || 'claude-opus-5-5' }}
+          MORNING_TIME: ${{ vars.MORNING_TIME || '07:00' }}
+          EVENING_TIME: ${{ vars.EVENING_TIME || '18:00' }}
+          # после каждого поста состояние сразу уходит в bot-state — без дублей при сбое
+          STATE_SYNC_CMD: bash scripts/push_state.sh
+        run: python -m bot run --max-runtime 19800
+
+      # без секретов цепочку не продолжаем — иначе пошли бы бесконечные пустые запуски
+      - name: Сохранить состояние
+        if: ${{ !cancelled() && steps.secrets.outcome == 'success' }}
+        run: bash scripts/push_state.sh
+
+      - name: Запустить следующий запуск цепочки
+        if: ${{ !cancelled() && steps.secrets.outcome == 'success' }}
+        run: |
+          busy=$(gh run list --workflow autopost.yml --limit 20 --json status,databaseId \
+            --jq "[.[] | select(.databaseId != ${GITHUB_RUN_ID} and (.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"pending\"))] | length")
+          if [ "$busy" = "0" ]; then
+            gh workflow run autopost.yml --ref "${GITHUB_REF_NAME}"
+            echo "Следующий запуск поставлен в очередь"
+          else
+            echo "Следующий запуск уже ждёт — новый не нужен"
+          fi

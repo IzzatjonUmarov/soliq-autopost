@@ -1,0 +1,54 @@
+name: Проверка и тестовый пост
+
+# Ручной запуск: Actions → Проверка и тестовый пост → Run workflow.
+# check — проверить токен бота, права в канале и ключ Claude.
+# morning / evening — сгенерировать пост. С галочкой dry_run пост НЕ уходит в канал:
+# картинка и текст появятся в логе и в артефакте «preview» внизу страницы запуска.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Что сделать"
+        type: choice
+        options: [check, morning, evening]
+        default: check
+      dry_run:
+        description: "Только предпросмотр (не публиковать)"
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Soliqmobilxizmati' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AI_MODEL: ${{ vars.AI_MODEL || 'claude-opus-5-5' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Загрузить историю (чтобы тема была следующей по кругу)
+        run: |
+          mkdir -p data
+          git fetch --depth=1 origin bot-state 2>/dev/null && git show FETCH_HEAD:state.json > data/state.json || true
+
+      - name: Проверка
+        if: ${{ inputs.action == 'check' }}
+        run: python -m bot check
+
+      - name: Тестовый пост
+        if: ${{ inputs.action != 'check' }}
+        run: python -m bot post ${{ inputs.action }} ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.action != 'check' }}
+        with:
+          name: preview
+          path: data/preview/
