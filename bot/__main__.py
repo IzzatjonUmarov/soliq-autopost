@@ -43,7 +43,8 @@ def prepare_morning(settings: Settings, state: State) -> dict:
         log.info("Цитата (%s): «%s» — %s", q.page, q.text, q.author)
         uz_text = translate_ru_uz(client, q.text)
     # имя автора не переводим, а пишем латиницей буква в букву: «Оноре де Бальзак» → «Onore de Balzak»
-    uz = (to_new_latin(uz_text), to_new_latin(q.author)) if uz_text else None
+    # (название книги после запятой в узбекской части не повторяем)
+    uz = (to_new_latin(uz_text), to_new_latin(q.author.split(",")[0])) if uz_text else None
     if not uz:
         log.info("Перевод на узбекский недоступен — цитата только на русском")
     caption = build_quote_post(q.text, q.author, q.url, uz)

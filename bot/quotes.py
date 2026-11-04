@@ -158,6 +158,8 @@ def suitable(q: Quote, cfg: dict) -> bool:
     # нужен конкретный человек: «карельская», «Автор неизвестен», «NN» не подходят
     if not q.author[:1].isupper() or UNKNOWN_AUTHOR.search(q.author):
         return False
+    if re.search(r"\[(\.\.\.|…)\]", q.text):  # сокращённые цитаты с пропусками не берём
+        return False
     blocked = [w.lower() for w in cfg.get("blocked_words", [])]
     low = f"{q.text} {q.author}".lower()
     return not any(w in low for w in blocked)
