@@ -61,7 +61,8 @@ jobs:
       - name: Работа бота (~5,5 часа)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Soliqmobilxizmati' }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Shaxsiy_moliya_uz' }}
+          CHANNEL_HANDLE: ${{ vars.CHANNEL_HANDLE || '@Shaxsiy_moliya_uz' }}
           MORNING_TIME: ${{ vars.MORNING_TIME || '07:00' }}
           EVENING_TIME: ${{ vars.EVENING_TIME || '18:00' }}
           MAX_AGE_DAYS: ${{ vars.MAX_AGE_DAYS || '3' }}

@@ -23,7 +23,8 @@ jobs:
     timeout-minutes: 20
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Soliqmobilxizmati' }}
+      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Shaxsiy_moliya_uz' }}
+      CHANNEL_HANDLE: ${{ vars.CHANNEL_HANDLE || '@Shaxsiy_moliya_uz' }}
       MAX_AGE_DAYS: ${{ vars.MAX_AGE_DAYS || '3' }}
     steps:
       - uses: actions/checkout@v4

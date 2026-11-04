@@ -1,4 +1,4 @@
-"""Автопостинг @Soliqmobilxizmati — только готовые тексты из источников, бот ничего не сочиняет.
+"""Автопостинг @Shaxsiy_moliya_uz — только готовые тексты из источников, бот ничего не сочиняет.
 
     python -m bot run [--max-runtime 19800]           работа по расписанию: 07:00 цитата, 18:00 новость (Ташкент)
     python -m bot post morning|evening [--dry-run]    один пост сейчас (для проверки)
@@ -193,6 +193,8 @@ def cmd_check(settings: Settings, only: str | None) -> int:
         chat = tg.get_chat()
         member = tg.get_member(me["id"])
         print(f"✓ Бот @{me['username']}, канал «{chat.get('title')}» ({settings.telegram_chat_id})")
+        print(f"  Постоянный номер канала: {chat.get('id')}   публичный адрес: @{chat.get('username')}")
+        print(f"  Водяной знак на картинках: {settings.watermark.text or '(нет)'}")
         if member.get("status") == "administrator" and member.get("can_post_messages", True):
             print("✓ Бот — администратор с правом публикации")
         else:

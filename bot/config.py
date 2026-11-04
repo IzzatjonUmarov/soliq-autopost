@@ -28,7 +28,10 @@ def _hhmm(value: str) -> dt.time:
 @dataclass
 class Settings:
     telegram_token: str = field(default_factory=lambda: _env("TELEGRAM_BOT_TOKEN"))
-    telegram_chat_id: str = field(default_factory=lambda: _env("TELEGRAM_CHAT_ID", "@Soliqmobilxizmati"))
+    # Куда публиковать. Лучше постоянный номер канала (-100…): он не меняется при смене публичной ссылки.
+    telegram_chat_id: str = field(default_factory=lambda: _env("TELEGRAM_CHAT_ID", "@Shaxsiy_moliya_uz"))
+    # Публичный @адрес канала — для водяного знака на картинках. Сменили ссылку — поменяйте только его.
+    channel_handle: str = field(default_factory=lambda: _env("CHANNEL_HANDLE", "@Shaxsiy_moliya_uz"))
     # время публикаций по Ташкенту: утром цитата дня, вечером новость дня
     morning_time: dt.time = field(default_factory=lambda: _hhmm(_env("MORNING_TIME", "07:00")))
     evening_time: dt.time = field(default_factory=lambda: _hhmm(_env("EVENING_TIME", "18:00")))
@@ -53,8 +56,12 @@ class Settings:
     def watermark(self):
         from .images import WatermarkConfig
 
-        text = self.telegram_chat_id if self.telegram_chat_id.startswith("@") else ""
-        return WatermarkConfig(text)
+        handle = self.channel_handle.strip()
+        if handle.startswith("https://t.me/") or handle.startswith("t.me/"):
+            handle = "@" + handle.rstrip("/").rsplit("/", 1)[-1]
+        if handle and not handle.startswith("@"):
+            handle = "@" + handle
+        return WatermarkConfig(handle)
 
 
 @dataclass
