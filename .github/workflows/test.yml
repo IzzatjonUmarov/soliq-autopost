@@ -1,8 +1,8 @@
 name: Проверка и тестовый пост
 
 # Ручной запуск: Actions → Проверка и тестовый пост → Run workflow.
-# check — проверить токен бота, права в канале и ключ Claude.
-# morning / evening — сгенерировать пост. С галочкой dry_run пост НЕ уходит в канал:
+# check — проверить источники новостей, страницы цитат и (если задан токен) права бота в канале.
+# morning / evening — собрать пост из источников. С галочкой dry_run пост НЕ уходит в канал:
 # картинка и текст появятся в логе и в артефакте «preview» внизу страницы запуска.
 on:
   workflow_dispatch:
@@ -24,8 +24,7 @@ jobs:
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || '@Soliqmobilxizmati' }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      AI_MODEL: ${{ vars.AI_MODEL || 'claude-opus-5-5' }}
+      MAX_AGE_DAYS: ${{ vars.MAX_AGE_DAYS || '3' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,7 +47,7 @@ jobs:
         run: python -m bot post ${{ inputs.action }} ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.action != 'check' }}
+        if: ${{ inputs.action != 'check' && !cancelled() }}
         with:
           name: preview
           path: data/preview/

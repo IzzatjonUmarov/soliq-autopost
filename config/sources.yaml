@@ -1,0 +1,77 @@
+# Источники вечерней «новости дня» (18:00): кешбэк, переводы, карты, вклады, тарифы.
+# Бот берёт заголовок и описание со страницы как есть и ставит ссылку на первоисточник.
+#
+# Поля источника (как в uz-business-news):
+#   id, name     — ключ (латиница) и подпись в посте
+#   group        — bank | gov | regulator | media (влияет на хэштег)
+#   url          — страница со списком новостей или RSS
+#   type         — auto (по умолчанию) | rss | html | govuz (сайты ведомств на gov.uz — через API портала)
+#   link_pattern — (необязательно) regex адреса конкретной новости
+#   strict: true — общий поток (СМИ, госпортал): берём только новости с явными словами из «strong»
+#   enabled: false — выключить
+#
+# Проверка: Actions → «Проверка и тестовый пост» → check (сколько новостей нашлось в каждом источнике).
+
+sources:
+  # ── Налоги, кешбэк, возврат НДС ─────────────────────────────
+  - {id: soliq, name: Налоговый комитет, group: gov, type: govuz, url: "https://gov.uz/ru/soliq/news/news"}
+
+  # ── ЦБ (закрыт для зарубежных серверов: из GitHub может не открыться) ──
+  - {id: cbu, name: Центральный банк, group: regulator, url: "https://cbu.uz/ru/press_center/news/", link_pattern: "/ru/press_center/news/\\d+"}
+
+  # ── Банки (адреса проверены в uz-business-news 02.11.2026) ──
+  - {id: nbu,        name: НБУ (Национальный банк),  url: "https://nbu.uz/ru/novosti"}
+  - {id: sqb,        name: SQB (Узпромстройбанк),    url: "https://sqb.uz/press-center/news-ru/"}
+  - {id: ipoteka,    name: Ипотека-банк,             url: "https://www.ipotekabank.uz/ru/blog/news/"}
+  - {id: mkbank,     name: Микрокредитбанк,          url: "https://mkbank.uz/ru/press_center/news/"}
+  - {id: aloqabank,  name: Алокабанк,                url: "https://aloqabank.uz/ru/press_center/news/"}
+  - {id: turonbank,  name: Туронбанк,                url: "https://turonbank.uz/ru/press_center/news/"}
+  - {id: hamkorbank, name: Хамкорбанк,               url: "https://hamkorbank.uz/press-center/news/", link_pattern: "/press-center/news/[a-z0-9-]+$"}
+  - {id: ipakyuli,   name: Ипак Йули банк,           url: "https://ru.ipakyulibank.uz/news", link_pattern: "/news/[a-z0-9-]+$"}
+  - {id: ofb,        name: Orient Finans Bank,       url: "https://ofb.uz/ru/novosti"}
+  - {id: infinbank,  name: InFinBank,                url: "https://www.infinbank.com/ru/press/news/"}
+  - {id: davrbank,   name: Давр банк,                url: "https://davrbank.uz/ru/news"}
+  - {id: trustbank,  name: Трастбанк,                url: "https://trustbank.uz/ru/press_center/news/"}
+  - {id: tbc,        name: TBC Bank Uzbekistan,      url: "https://tbcbank.uz/ru/news/"}
+  - {id: octobank,   name: Octobank,                 url: "https://octobank.uz/ru/press-tsentr"}
+  - {id: tengebank,  name: Tenge Bank,               url: "https://tengebank.uz/ru/about/press_center"}
+  - {id: garantbank, name: Garant Bank,              url: "https://garantbank.uz/ru/press-center"}
+  - {id: kdb,        name: KDB Bank Uzbekistan,      url: "https://kdb.uz/ru/press-center/news"}
+
+  # ── СМИ: только новости с явными словами про кешбэк, переводы, карты и т. п. ──
+  - {id: kunuz,   name: Kun.uz,    group: media, type: rss, url: "https://kun.uz/ru/news/rss", strict: true}
+  - {id: gazetauz, name: Газета.uz, group: media, type: rss, url: "https://www.gazeta.uz/ru/rss/", strict: true}
+  - {id: spotuz,  name: Spot.uz,   group: media, url: "https://www.spot.uz/ru/", strict: true}
+
+  # ── Отключены (в uz-business-news): новости только через JavaScript или защита от ботов ──
+  - {id: asaka,       name: Асакабанк,   url: "https://asakabank.uz/ru/press-center", enabled: false}
+  - {id: agrobank,    name: Агробанк,    url: "https://agrobank.uz/ru",              enabled: false}
+  - {id: xb,          name: Халк банк,   url: "https://xb.uz/post",                  enabled: false}
+  - {id: kapitalbank, name: Капиталбанк, url: "https://kapitalbank.uz/ru/",           enabled: false}
+  - {id: anorbank,    name: Anorbank,    url: "https://anorbank.uz/ru/",              enabled: false}
+
+# Отбор по словам (регулярные выражения, без учёта регистра).
+#   strong   — главные темы канала (×2 к оценке)
+#   normal   — смежные темы (×1)
+#   negative — такие новости не публикуются совсем
+keywords:
+  strong:
+    - "кешб[эе]к|кэшб[эе]к|cashback|keshbek|keşbek"
+    - "без комисси|0\\s?%|комиссия за перевод|bepul|komissiyasiz"
+    - "перевод\\w* (денег|средств|с карты|на карту)|денежн\\w* перевод|p2p|o.?tkazma|ötkazma"
+    - "возврат\\w* НДС|\\bНДС\\b|\\bQQS\\b|Soliq"
+    - "\\bClick\\b|\\bPayme\\b|\\bUzum\\b|\\bPaynet\\b"
+  normal:
+    - "карт[аыуе]|karta|Visa|Mastercard|Humo|Uzcard|UnionPay"
+    - "депозит|вклад|omonat|depozit"
+    - "кредит|рассрочк|ипотек|микрозайм|kredit|muddatli"
+    - "ставк|процент|foiz"
+    - "тариф|акци[яию]|бонус|aksiya|скидк"
+    - "мобильн\\w* (банк|приложени)|онлайн|приложени"
+    - "налог|soliq|солиқ"
+  negative:
+    - "поздрав|праздник|юбилей|tabrik"
+    - "ваканси|конкурс на (замещение|должност)|ish o.?rni"
+    - "спорт|футбол|турнир|фестивал|концерт"
+    - "семинар|тренинг|вебинар|форум|выставк"
+    - "соболезн|некролог"

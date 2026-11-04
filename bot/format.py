@@ -1,41 +1,97 @@
-"""Оформление поста: русский сверху, узбекский (новая латиница) снизу, источники, хэштеги."""
+"""Оформление поста для Telegram (HTML-разметка)."""
 
 from __future__ import annotations
 
 import html
 import re
-from urllib.parse import urlparse
 
-CAPTION_LIMIT = 1024  # лимит Telegram на подпись к картинке (считаются видимые символы)
+from .fetch import NewsItem, shorten
+
+GROUP_TAGS = {
+    "gov": "#госорганы",
+    "regulator": "#ЦБ",
+    "bank": "#банки",
+    "market": "#биржа",
+    "invest": "#инвестиции",
+    "media": "#официально",
+}
+CATEGORY_EMOJI = {
+    "Банки и финансы": "🏦", "Денежно-кредитная политика": "📊", "Новые продукты": "🆕",
+    "Инвестиции": "💼", "Внешняя торговля": "🚢", "Международные отношения": "🌐",
+    "Налоги и таможня": "🧾", "Законодательство": "⚖️", "Макроэкономика": "📈",
+    "Промышленность": "🏭", "Энергетика": "⚡", "Сельское хозяйство": "🌾",
+    "IT и цифровизация": "💻", "Рынок капитала": "📉", "Туризм": "✈️",
+    "Транспорт и логистика": "🚆", "Другое": "📰",
+}
+GROUP_EMOJI = {"gov": "🏛", "regulator": "🏦", "bank": "🏦", "market": "📉", "invest": "💼", "media": "📰"}
+TELEGRAM_LIMIT = 4096
+CAPTION_LIMIT = 1024  # подпись к фото в Telegram короче обычного сообщения
 
 
-def _e(text: str) -> str:
-    return html.escape(text.strip(), quote=False)
+def _tag(text: str) -> str:
+    cleaned = re.sub(r"[^\w]", "", text.replace(" ", "_"), flags=re.UNICODE)
+    return f"#{cleaned}" if cleaned else ""
 
 
-def build_caption(post: dict, channel: str) -> str:
-    parts = [
-        f"<b>{_e(post['headline_ru'])}</b>",
-        _e(post["text_ru"]),
-        "➖➖➖",
-        f"<b>{_e(post['headline_uz'])}</b>",
-        _e(post["text_uz"]),
-    ]
-    if post.get("sources"):
-        links = []
-        for s in post["sources"]:
-            name = urlparse(s["url"]).netloc.removeprefix("www.") or s["name"]
-            links.append(f'<a href="{html.escape(s["url"])}">{_e(name)}</a>')
-        parts.append("🔗 Manba / Источник: " + ", ".join(links))
-    footer = " ".join(f"#{t}" for t in post.get("tags", []))
-    if channel.startswith("@"):
-        footer = f"{footer}\n\n👉 {channel}".strip()
-    if footer:
-        parts.append(footer)
+def _source_tag(item: NewsItem) -> str:
+    return _tag(item.source_id)
+
+
+def build_post(item: NewsItem, review: dict | None = None, limit: int = TELEGRAM_LIMIT,
+               uz: tuple[str, str] | None = None) -> str:
+    """Пост: русский блок, затем (если есть) узбекский, ссылка на первоисточник и хэштеги."""
+    e = html.escape
+    if review:
+        emoji = CATEGORY_EMOJI.get(review.get("category", ""), "📰")
+        headline = review.get("headline") or item.title
+        body = review.get("summary") or item.summary
+        extra_tags = [_tag(t) for t in review.get("tags", [])[:3]]
+    else:
+        emoji = GROUP_EMOJI.get(item.group, "📰")
+        headline, body, extra_tags = item.title, item.summary, []
+    uz_headline, uz_body = uz if uz else ("", "")
+
+    def _dedupe(head: str, text: str) -> str:
+        return "" if text and text.strip().lower().startswith(head.strip().lower()[:60]) else text or ""
+
+    body, uz_body = _dedupe(headline, body), _dedupe(uz_headline, uz_body)
+
+    date = f" · {item.published.strftime('%d.%m.%Y')}" if item.published else ""
+    tags = " ".join(dict.fromkeys(t for t in [GROUP_TAGS.get(item.group, ""), _source_tag(item), *extra_tags] if t))
+    source_label = "Источник / Manba" if uz_headline else "Источник"
+    footer = [f"🔗 <a href=\"{e(item.url, quote=True)}\">{source_label}: {e(item.source_name)}</a>{e(date)}"]
+    if tags:
+        footer.append(tags)
+
+    def render(ru_text: str, uz_text: str) -> str:
+        parts = [f"{emoji} <b>{e(headline)}</b>"]
+        if ru_text:
+            parts.append(e(ru_text))
+        if uz_headline:
+            parts.append(f"🇺🇿 <b>{e(uz_headline)}</b>")
+            if uz_text:
+                parts.append(e(uz_text))
+        return "\n\n".join(parts + footer)
+
+    text = render(body, uz_body)
+    if len(text) > limit:
+        # делим оставшееся место между описаниями поровну (пропорционально длине)
+        fixed = len(render("", ""))
+        budget = max(0, limit - fixed - 8)
+        total = len(e(body)) + len(e(uz_body)) or 1
+        ru_cut = shorten(body, int(budget * len(e(body)) / total)) if body else ""
+        uz_cut = shorten(uz_body, int(budget * len(e(uz_body)) / total)) if uz_body else ""
+        text = render(ru_cut if len(ru_cut) > 40 else "", uz_cut if len(uz_cut) > 40 else "")
+    return text[:limit]
+
+
+def build_quote_post(text: str, author: str, url: str, uz: tuple[str, str] | None = None) -> str:
+    """Цитата дня: русский текст из Викицитатника, ниже — узбекский перевод, ссылка на источник."""
+    e = html.escape
+    parts = ["💬 <b>Цитата дня</b>", f"«{e(text)}»\n— <i>{e(author)}</i>"]
+    if uz and uz[0]:
+        parts += ["🇺🇿 <b>Kun iqtibosi</b>", f"«{e(uz[0])}»\n— <i>{e(uz[1] or author)}</i>"]
+    label = "Источник / Manba" if uz and uz[0] else "Источник"
+    parts.append(f"🔗 <a href=\"{e(url, quote=True)}\">{label}: Викицитатник</a>")
+    parts.append("#цитата #деньги #moliya")
     return "\n\n".join(parts)
-
-
-def visible_length(html_text: str) -> int:
-    """Длина так, как её считает Telegram: в UTF-16 (эмодзи — 2 символа), без HTML-тегов."""
-    text = html.unescape(re.sub(r"<[^>]+>", "", html_text))
-    return len(text.encode("utf-16-le")) // 2
