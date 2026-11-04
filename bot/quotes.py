@@ -130,6 +130,11 @@ def parse_page(wikitext: str, page: str) -> list[Quote]:
         if "\n" in raw_text.strip() or raw_text.lstrip().startswith(("—", "-", "–")):
             continue  # диалоги и стихи в несколько строк — не для поста
         text, author = clean_wiki(raw_text), clean_wiki(raw_author).strip(" ,.;")
+        # непарные скобки — остаток разметки: «Ралф Эмерсон)» → «Ралф Эмерсон»
+        while author.endswith(")") and author.count(")") > author.count("("):
+            author = author[:-1].rstrip(" ,.;")
+        while author.startswith("(") and author.count("(") > author.count(")"):
+            author = author[1:].lstrip()
         if text and author:
             quotes.append(Quote(text, author, page))
     return quotes
