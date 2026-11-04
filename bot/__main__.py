@@ -42,8 +42,8 @@ def prepare_morning(settings: Settings, state: State) -> dict:
             raise NothingFound("на страницах Викицитатника не нашлось новой подходящей цитаты")
         log.info("Цитата (%s): «%s» — %s", q.page, q.text, q.author)
         uz_text = translate_ru_uz(client, q.text)
-        uz_author = translate_ru_uz(client, q.author) if uz_text else ""
-    uz = (to_new_latin(uz_text), to_new_latin(uz_author or "")) if uz_text else None
+    # имя автора не переводим, а пишем латиницей буква в букву: «Оноре де Бальзак» → «Onore de Balzak»
+    uz = (to_new_latin(uz_text), to_new_latin(q.author)) if uz_text else None
     if not uz:
         log.info("Перевод на узбекский недоступен — цитата только на русском")
     caption = build_quote_post(q.text, q.author, q.url, uz)

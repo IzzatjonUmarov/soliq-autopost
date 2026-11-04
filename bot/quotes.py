@@ -148,9 +148,15 @@ def fetch_page(client: httpx.Client, page: str) -> list[Quote]:
     return parse_page(text, page)
 
 
+UNKNOWN_AUTHOR = re.compile(r"неизвест|аноним|^NN$|^N\.?N\.?$|пословиц|поговорк|народн", re.I)
+
+
 def suitable(q: Quote, cfg: dict) -> bool:
     min_len, max_len = cfg.get("min_length", 25), cfg.get("max_length", 260)
     if not (min_len <= len(q.text) <= max_len) or len(q.author) > 90:
+        return False
+    # нужен конкретный человек: «карельская», «Автор неизвестен», «NN» не подходят
+    if not q.author[:1].isupper() or UNKNOWN_AUTHOR.search(q.author):
         return False
     blocked = [w.lower() for w in cfg.get("blocked_words", [])]
     low = f"{q.text} {q.author}".lower()
