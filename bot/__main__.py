@@ -48,7 +48,8 @@ def prepare_morning(settings: Settings, state: State) -> dict:
     if not uz:
         log.info("Перевод на узбекский недоступен — цитата только на русском")
     caption = build_quote_post(q.text, q.author, q.url, uz)
-    card = make_quote_card(q.text, q.author, now_tashkent().strftime("%d.%m.%Y"))
+    # на картинке — узбекский текст (если перевод есть), как и первым в посте
+    card = make_quote_card(uz[0] if uz else q.text, uz[1] if uz else q.author, now_tashkent().strftime("%d.%m.%Y"))
     jpeg = to_jpeg(apply_watermark(card, settings.watermark))
     return {"kind": "morning", "caption": caption, "jpeg": jpeg, "title": f"{q.author}: {q.text[:80]}",
             "quote_key": q.key, "news_url": ""}

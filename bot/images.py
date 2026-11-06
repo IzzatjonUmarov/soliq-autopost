@@ -232,7 +232,7 @@ def build_image(client: httpx.Client, item: NewsItem, cfg: WatermarkConfig,
 QUOTE_COLORS = ((10, 70, 60), (4, 28, 26), (46, 204, 150))
 
 
-def make_quote_card(text: str, author: str, date_text: str, label: str = "ЦИТАТА ДНЯ · KUN IQTIBOSI") -> Image.Image:
+def make_quote_card(text: str, author: str, date_text: str, label: str = "KUN IQTIBOSI · ЦИТАТА ДНЯ") -> Image.Image:
     width, height = CARD_SIZE
     top, bottom, accent = QUOTE_COLORS
     card = Image.new("RGB", CARD_SIZE)

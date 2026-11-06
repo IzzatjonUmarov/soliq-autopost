@@ -39,7 +39,7 @@ def _source_tag(item: NewsItem) -> str:
 
 def build_post(item: NewsItem, review: dict | None = None, limit: int = TELEGRAM_LIMIT,
                uz: tuple[str, str] | None = None) -> str:
-    """Пост: русский блок, затем (если есть) узбекский, ссылка на первоисточник и хэштеги."""
+    """Пост: узбекский блок (если есть), затем русский, ссылка на первоисточник и хэштеги."""
     e = html.escape
     if review:
         emoji = CATEGORY_EMOJI.get(review.get("category", ""), "📰")
@@ -58,19 +58,23 @@ def build_post(item: NewsItem, review: dict | None = None, limit: int = TELEGRAM
 
     date = f" · {item.published.strftime('%d.%m.%Y')}" if item.published else ""
     tags = " ".join(dict.fromkeys(t for t in [GROUP_TAGS.get(item.group, ""), _source_tag(item), *extra_tags] if t))
-    source_label = "Источник / Manba" if uz_headline else "Источник"
+    source_label = "Manba / Источник" if uz_headline else "Источник"
     footer = [f"🔗 <a href=\"{e(item.url, quote=True)}\">{source_label}: {e(item.source_name)}</a>{e(date)}"]
     if tags:
         footer.append(tags)
 
     def render(ru_text: str, uz_text: str) -> str:
-        parts = [f"{emoji} <b>{e(headline)}</b>"]
-        if ru_text:
-            parts.append(e(ru_text))
+        # сначала узбекский блок, затем русский
+        parts = []
         if uz_headline:
             parts.append(f"🇺🇿 <b>{e(uz_headline)}</b>")
             if uz_text:
                 parts.append(e(uz_text))
+            parts.append(f"🇷🇺 <b>{e(headline)}</b>")
+        else:
+            parts.append(f"{emoji} <b>{e(headline)}</b>")
+        if ru_text:
+            parts.append(e(ru_text))
         return "\n\n".join(parts + footer)
 
     text = render(body, uz_body)
@@ -86,12 +90,16 @@ def build_post(item: NewsItem, review: dict | None = None, limit: int = TELEGRAM
 
 
 def build_quote_post(text: str, author: str, url: str, uz: tuple[str, str] | None = None) -> str:
-    """Цитата дня: русский текст из Викицитатника, ниже — узбекский перевод, ссылка на источник."""
+    """Цитата дня: сначала узбекский перевод, ниже — русский текст из Викицитатника, ссылка на источник."""
     e = html.escape
-    parts = ["💬 <b>Цитата дня</b>", f"«{e(text)}»\n— <i>{e(author)}</i>"]
+    parts = []
     if uz and uz[0]:
-        parts += ["🇺🇿 <b>Kun iqtibosi</b>", f"«{e(uz[0])}»\n— <i>{e(uz[1] or author)}</i>"]
-    label = "Источник / Manba" if uz and uz[0] else "Источник"
+        parts += ["🇺🇿 <b>Kun iqtibosi</b>", f"«{e(uz[0])}»\n— <i>{e(uz[1] or author)}</i>",
+                  "🇷🇺 <b>Цитата дня</b>"]
+    else:
+        parts.append("💬 <b>Цитата дня</b>")
+    parts.append(f"«{e(text)}»\n— <i>{e(author)}</i>")
+    label = "Manba / Источник" if uz and uz[0] else "Источник"
     parts.append(f"🔗 <a href=\"{e(url, quote=True)}\">{label}: Викицитатник</a>")
     parts.append("#цитата #деньги #moliya")
     return "\n\n".join(parts)
