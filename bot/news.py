@@ -34,14 +34,25 @@ def collect(settings: Settings, sources: list[Source]) -> dict[str, list[NewsIte
 
 class Scorer:
     def __init__(self, cfg: dict):
+        self.top = [re.compile(p, re.I) for p in cfg.get("top", [])]
         self.strong = [re.compile(p, re.I) for p in cfg.get("strong", [])]
         self.normal = [re.compile(p, re.I) for p in cfg.get("normal", [])]
         self.negative = [re.compile(p, re.I) for p in cfg.get("negative", [])]
 
+    def is_negative(self, text: str) -> bool:
+        return any(rx.search(text) for rx in self.negative)
+
+    def has_strong(self, text: str) -> bool:
+        return any(rx.search(text) for rx in self.top + self.strong)
+
     def score(self, text: str) -> float:
-        if any(rx.search(text) for rx in self.negative):
+        if self.is_negative(text):
             return 0.0
-        return 2.0 * sum(bool(rx.search(text)) for rx in self.strong) + sum(bool(rx.search(text)) for rx in self.normal)
+        hits = lambda rxs: sum(bool(rx.search(text)) for rx in rxs)  # noqa: E731
+        return 3.0 * hits(self.top) + 2.0 * hits(self.strong) + hits(self.normal)
+
+
+MIN_SCORE = 2  # одного общего слова («карта», «тариф») мало — нужно хотя бы два совпадения или одно главное
 
 
 def pick_news(settings: Settings, seen: set[str]) -> NewsItem | None:
@@ -60,10 +71,12 @@ def pick_news(settings: Settings, seen: set[str]) -> NewsItem | None:
             if item.url in seen:
                 continue
             score = scorer.score(f"{item.title} {item.summary}")
-            # банки и Налоговый комитет — профильные источники: им хватит и общих слов;
-            # СМИ и госпортал (strict) — только если в заголовке явно про наши темы
-            if score >= (2 if source.strict else 1):
-                candidates.append((score, item))
+            if score < MIN_SCORE:
+                continue
+            # СМИ и госпортал (strict): главное слово (кешбэк, перевод, комиссия, НДС, Click…) — прямо в заголовке
+            if source.strict and not (scorer.has_strong(item.title) and not scorer.is_negative(item.title)):
+                continue
+            candidates.append((score, item))
     log.info("Кандидатов по ключевым словам: %d", len(candidates))
 
     now = datetime.now(timezone.utc)
@@ -86,9 +99,16 @@ def pick_news(settings: Settings, seen: set[str]) -> NewsItem | None:
                 continue
             if not item.summary:
                 continue
-            full = scorer.score(f"{item.title} {item.summary} {item.text[:1500]}")
-            checked.append((max(score, full), item))
-            log.info("  [%.0f] %s  %s", max(score, full), published.date(), item.title[:90])
+            # полный текст — только для отсева (преступления, суды и т. п.), оценку он не повышает:
+            # иначе статья «про другое», где мимоходом упомянуты карты и переводы, обгоняет профильные новости
+            if scorer.is_negative(f"{item.title} {item.summary} {item.text[:1500]}"):
+                log.info("  стоп-слово в тексте: %s", item.title[:80])
+                continue
+            final = scorer.score(f"{item.title} {item.summary}")
+            if final < MIN_SCORE:
+                continue
+            checked.append((final, item))
+            log.info("  [%.0f] %s  %s", final, published.date(), item.title[:90])
     if not checked:
         return None
     checked.sort(key=lambda c: (c[0], c[1].published), reverse=True)
