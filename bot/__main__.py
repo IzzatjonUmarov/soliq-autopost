@@ -56,7 +56,8 @@ def prepare_morning(settings: Settings, state: State) -> dict:
 
 
 def prepare_evening(settings: Settings, state: State) -> dict:
-    item = pick_news(settings, state.seen_news)
+    recent = [h.get("title", "") for h in state.history if h.get("kind") == "evening"][-30:]
+    item = pick_news(settings, state.seen_news, recent)
     if not item:
         raise NothingFound(f"за последние {settings.max_age_days} дн. нет новых новостей по темам канала")
     log.info("Новость: %s — %s", item.title, item.url)

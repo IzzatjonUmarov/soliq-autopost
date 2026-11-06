@@ -51,12 +51,30 @@ class Scorer:
         hits = lambda rxs: sum(bool(rx.search(text)) for rx in rxs)  # noqa: E731
         return 3.0 * hits(self.top) + 2.0 * hits(self.strong) + hits(self.normal)
 
+    def is_top(self, text: str) -> bool:
+        return any(rx.search(text) for rx in self.top)
+
 
 MIN_SCORE = 2  # одного общего слова («карта», «тариф») мало — нужно хотя бы два совпадения или одно главное
 
 
-def pick_news(settings: Settings, seen: set[str]) -> NewsItem | None:
-    """Лучшая свежая новость, которой ещё не было в канале, или None."""
+def _stems(title: str) -> set[str]:
+    return {w[:5] for w in re.findall(r"\w+", title.lower()) if len(w) >= 4 and not w.isdigit()}
+
+
+def same_story(a: str, b: str) -> bool:
+    """Похожие заголовки — одна и та же новость с разных сайтов («ЦБ ожидает снижения ставок…»)."""
+    sa, sb = _stems(a), _stems(b)
+    if len(sa) < 3 or len(sb) < 3:
+        return False
+    return len(sa & sb) / min(len(sa), len(sb)) >= 0.5
+
+
+def pick_news(settings: Settings, seen: set[str], recent_titles: list[str] | None = None) -> NewsItem | None:
+    """Лучшая свежая новость, которой ещё не было в канале, или None.
+
+    Порядок: сначала главные темы канала (кешбэк, переводы, платёжные сервисы), затем по баллам, затем свежее."""
+    recent_titles = recent_titles or []
     sources = {s.id: s for s in load_sources(settings.sources_file)}
     scorer = Scorer(load_yaml(settings.sources_file).get("keywords", {}))
     results = collect(settings, list(sources.values()))
@@ -76,12 +94,18 @@ def pick_news(settings: Settings, seen: set[str]) -> NewsItem | None:
             # СМИ и госпортал (strict): главное слово (кешбэк, перевод, комиссия, НДС, Click…) — прямо в заголовке
             if source.strict and not (scorer.has_strong(item.title) and not scorer.is_negative(item.title)):
                 continue
+            if any(same_story(item.title, t) for t in recent_titles):
+                continue  # эта новость уже выходила (с другого сайта)
             candidates.append((score, item))
     log.info("Кандидатов по ключевым словам: %d", len(candidates))
 
     now = datetime.now(timezone.utc)
     oldest = now - timedelta(days=settings.max_age_days)
-    candidates.sort(key=lambda c: (c[0], c[1].published or oldest), reverse=True)
+
+    def priority(c: tuple[float, NewsItem]):
+        return (scorer.is_top(f"{c[1].title} {c[1].summary}"), c[0], c[1].published or oldest)
+
+    candidates.sort(key=priority, reverse=True)
     checked: list[tuple[float, NewsItem]] = []
     with make_client(settings.request_timeout) as client:
         for score, item in candidates[:ENRICH_TOP]:
@@ -107,9 +131,12 @@ def pick_news(settings: Settings, seen: set[str]) -> NewsItem | None:
             final = scorer.score(f"{item.title} {item.summary}")
             if final < MIN_SCORE:
                 continue
+            if any(same_story(item.title, t) for t in recent_titles):
+                continue
             checked.append((final, item))
-            log.info("  [%.0f] %s  %s", final, published.date(), item.title[:90])
+            mark = "★" if scorer.is_top(f"{item.title} {item.summary}") else " "
+            log.info("  %s[%.0f] %s  %s", mark, final, published.date(), item.title[:90])
     if not checked:
         return None
-    checked.sort(key=lambda c: (c[0], c[1].published), reverse=True)
+    checked.sort(key=priority, reverse=True)
     return checked[0][1]
