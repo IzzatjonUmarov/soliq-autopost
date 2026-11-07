@@ -1,0 +1,67 @@
+{
+ "posted": {
+  "2026-11-04": [
+   "evening"
+  ],
+  "2026-11-05": [
+   "morning",
+   "evening"
+  ],
+  "2026-11-06": [
+   "morning",
+   "evening"
+  ],
+  "2026-11-07": [
+   "morning",
+   "evening"
+  ]
+ },
+ "history": [
+  {
+   "date": "2026-11-04T18:00+05:00",
+   "kind": "evening",
+   "title": "Центробанк ожидает снижения ставок по кредитам и вкладам в Узбекистане в ближайшие 3−4 года"
+  },
+  {
+   "date": "2026-11-05T07:00+05:00",
+   "kind": "morning",
+   "title": "Ч. Т. Джонс: Многие стали пессимистами, финансируя оптимистов."
+  },
+  {
+   "date": "2026-11-05T18:00+05:00",
+   "kind": "evening",
+   "title": "Центральный банк повысил прогноз инфляции по итогам года"
+  },
+  {
+   "date": "2026-11-06T07:00+05:00",
+   "kind": "morning",
+   "title": "Барри Моррис Голдуотер: Налоговое законодательство создало больше преступников, чем любой другой законод"
+  },
+  {
+   "date": "2026-11-06T18:00+05:00",
+   "kind": "evening",
+   "title": "Единый транзитный счёт для пополнения карт UZCARD и HUMO в Hamkorbank"
+  },
+  {
+   "date": "2026-11-07T07:00+05:00",
+   "kind": "morning",
+   "title": "Милтон Фридман: Фондовый рынок и экономика — это две разные вещи."
+  },
+  {
+   "date": "2026-11-07T17:45+05:00",
+   "kind": "evening",
+   "title": "(пропущен)",
+   "skipped": true
+  }
+ ],
+ "seen_news": [
+  "https://www.gazeta.uz/ru/2026/11/04/deposits-credits",
+  "https://kun.uz/ru/news/2026/11/05/tsentralnyy-bank-povysil-prognoz-inflyatsii-po-itogam-goda-59429",
+  "https://hamkorbank.uz/press-center/news/unified-transit-account-uzcard-humo"
+ ],
+ "used_quotes": [
+  "774814e7977e46e6",
+  "55ccaf3fe275837b",
+  "6fffcaaf8d04932c"
+ ]
+}
